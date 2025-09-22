@@ -7,6 +7,15 @@
           <h2>认证中心</h2>
         </div>
         <div class="user-info">
+          <el-button
+            type="info"
+            size="small"
+            @click="fetchAllSessions"
+            style="margin-right: 10px;"
+          >
+            <el-icon><List /></el-icon>
+            查看所有会话
+          </el-button>
           <el-dropdown @command="handleCommand">
             <span class="user-name">
               <el-icon><User /></el-icon>
@@ -36,28 +45,31 @@
             <el-icon><Grid /></el-icon>
             <span>系统列表</span>
           </el-menu-item>
+          <el-menu-item index="sessions">
+            <el-icon><List /></el-icon>
+            <span>会话管理</span>
+          </el-menu-item>
         </el-menu>
       </div>
 
       <!-- 内容区域 -->
       <div class="content">
-        <div class="systems-container">
+        <div v-if="activeMenu === 'systems'" class="systems-container">
+          <!-- 原有系统列表内容保持不变 -->
           <div class="page-header">
             <h3>系统列表</h3>
             <p>点击下方图标进入对应系统</p>
           </div>
           
-          <!-- 加载状态 -->
           <div v-if="loading" class="loading-container">
             <el-icon class="is-loading"><Loading /></el-icon>
             <span>加载中...</span>
           </div>
           
-          <!-- 系统网格 -->
           <div v-else class="systems-grid">
-            <div 
-              v-for="system in systems" 
-              :key="system.id" 
+            <div
+              v-for="system in systems"
+              :key="system.id"
               class="system-card"
               @click="navigateToSystem(system.systemUrl)"
             >
@@ -71,8 +83,22 @@
             </div>
           </div>
         </div>
+
+        <el-table v-if="activeMenu === 'sessions'" :data="allSessions" v-loading="sessionsLoading">
+            <el-table-column prop="sessionId" label="会话ID" width="220" />
+            <el-table-column prop="principal" label="用户" width="120" />
+            <el-table-column prop="lastRequest" label="最后活动时间" width="180">
+              <template #default="{ row }">
+                {{ formatDate(row.lastRequest) }}
+              </template>
+            </el-table-column>
+        </el-table>
+
+
+
       </div>
     </div>
+
   </div>
 </template>
 
@@ -84,6 +110,7 @@ import {
   User, 
   Grid,
   Loading,
+  View,
   House,
   Setting,
   Document,
@@ -101,6 +128,7 @@ export default {
     User,
     Grid,
     Loading,
+    View,
     House,
     Setting,
     Document,
@@ -111,8 +139,12 @@ export default {
     Management
   },
   setup() {
-    const router = useRouter()
+    // 新增响应式数据
+    const allSessions = ref([])
+    const sessionsLoading = ref(false)
     const activeMenu = ref('systems')
+
+    const router = useRouter()
     const loading = ref(false)
     
     const userInfo = reactive({
@@ -121,6 +153,7 @@ export default {
 
     // 系统列表数据
     const systems = ref([])
+  
 
     const handleCommand = (command) => {
       switch (command) {
@@ -144,6 +177,13 @@ export default {
           type: 'warning'
         })
         
+        // 调用登出接口
+        try {
+          await authApi.logout()
+        } catch (error) {
+          console.warn('登出接口调用失败:', error)
+        }
+        
         // 清除本地存储
         localStorage.removeItem('user')
         localStorage.removeItem('authenticated')
@@ -160,27 +200,41 @@ export default {
       window.open(url, '_blank')
     }
 
+
+    // 新增方法
+    const fetchAllSessions = async () => {
+      try {
+        sessionsLoading.value = true
+        activeMenu.value = 'sessions'
+        const res = await authApi.postSession()
+        allSessions.value = res.data || []
+      } catch (error) {
+        ElMessage.error('获取会话列表失败: ' + error.message)
+      } finally {
+        sessionsLoading.value = false
+      }
+    }
+
+    const formatDate = (date) => {
+      return new Date(date).toLocaleString()
+    }
+
     // 获取系统列表
     const fetchSystems = async () => {
       loading.value = true
       try {
-        console.log('开始获取系统列表...')
         const response = await authApi.getSystems()
-        console.log('系统列表响应:', response)
         
         if (response && response.data) {
           systems.value = response.data
-          console.log('系统列表数据:', systems.value)
-        } else {
-          console.warn('响应数据格式异常:', response)
         }
       } catch (error) {
-        console.error('获取系统列表失败:', error)
         ElMessage.error('获取系统列表失败')
       } finally {
         loading.value = false
       }
     }
+
 
     onMounted(() => {
       // 检查登录状态
@@ -200,13 +254,23 @@ export default {
       userInfo,
       systems,
       handleCommand,
-      navigateToSystem
+      navigateToSystem,
+      handleLogout,
+      fetchAllSessions,
+      formatDate,
+      allSessions,
+      sessionsLoading
     }
   }
 }
 </script>
 
 <style scoped>
+/* 新增样式 */
+.sessions-container {
+  padding: 20px;
+}
+
 .auth-center {
   height: 100vh;
   display: flex;
@@ -350,6 +414,15 @@ export default {
   font-size: 12px;
   color: #909399;
   line-height: 1.4;
+}
+
+.session-info {
+  padding: 10px 0;
+}
+
+.session-info pre {
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* 响应式设计 */

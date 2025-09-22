@@ -2,7 +2,7 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-header">
-        <h2>项目管理系统</h2>
+        <h2>统一认证中心</h2>
         <p>请登录您的账户</p>
       </div>
 
@@ -34,7 +34,6 @@
           />
         </el-form-item>
 
-
         <el-form-item>
           <el-button
             type="primary"
@@ -52,7 +51,7 @@
 </template>
 
 <script>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { authApi } from '@/api/auth'
@@ -63,6 +62,7 @@ export default {
     const router = useRouter()
     const loginFormRef = ref()
     const loading = ref(false)
+    const serviceUrl = ref('') // 存储service参数
 
     const loginForm = reactive({
       username: '',
@@ -79,6 +79,13 @@ export default {
       ]
     }
 
+    // 页面加载时获取service参数
+    onMounted(() => {
+      const urlParams = new URLSearchParams(window.location.search)
+      serviceUrl.value = urlParams.get('service') || ''
+      console.log('获取到service参数:', serviceUrl.value)
+    })
+
     const handleLogin = async () => {
       if (!loginFormRef.value) return
 
@@ -86,19 +93,40 @@ export default {
         if (valid) {
           loading.value = true
           try {
-            // 使用FormData格式提交，符合Spring Security默认要求
-            const response = await authApi.login(loginForm)
-            if (response) {
+            const res = await authApi.login(loginForm)
+            console.log('authApi请求后返回的数据:', res)
+            // 检查返回的数据结构
+            if (res && res.code === 200) {
               ElMessage.success('登录成功')
-
-              // 保存用户信息到localStorage
-              localStorage.setItem('user', JSON.stringify({
-                username: loginForm.username,
-              }))
+              
+              // 保存Token到localStorage，为后续业务系统单点登录准备
+              localStorage.setItem('accessToken', res.data.accessToken)
+              localStorage.setItem('refreshToken', res.data.refreshToken)
               localStorage.setItem('authenticated', 'true')
-
-              // 跳转到认证中心首页
-              router.push('/auth-center')
+              
+              // 检查是否有service参数
+              if (serviceUrl.value) {
+                // 有service参数，重定向到业务系统
+                console.log('检测到service参数，准备重定向到:', serviceUrl.value)
+                
+                // 生成简单的票据参数
+                const ticket = 'ST-' + Date.now() + '-' + Math.random().toString(36).substr(2, 8)
+                
+                // 构建回调URL
+                const callbackUrl = serviceUrl.value + (serviceUrl.value.includes('?') ? '&' : '?') + 'flag=true&ticket=' + ticket
+                console.log('构建回调URL:', callbackUrl)
+                
+                // 延迟一下再跳转，让用户看到成功提示
+                setTimeout(() => {
+                  window.location.href = callbackUrl
+                }, 1000)
+              } else {
+                // 没有service参数，跳转到认证中心首页
+                router.push('/auth-center')
+              }
+            } else {
+              // 处理非200状态的成功响应
+              ElMessage.error(res.message || '登录失败')
             }
           } catch (error) {
             console.error('登录失败:', error)
