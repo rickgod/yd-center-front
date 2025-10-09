@@ -6,8 +6,12 @@
     "serve": "vue-cli-service serve --mode local",
     "serve:local": "vue-cli-service serve --mode local",
     "serve:test": "vue-cli-service serve --mode test",
-    "serve:dev": "vue-cli-service serve --mode development",
-    "serve:prod": "vue-cli-service serve --mode production"
+    "serve:dev": "vue-cli-service serve --mode dev",
+    "serve:prod": "vue-cli-service serve --mode prod",
+    "build": "vue-cli-service build --mode prod",
+    "build:test": "vue-cli-service build --mode test",
+    "build:dev": "vue-cli-service build --mode dev",
+    "build:pre": "vue-cli-service build --mode pre"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",

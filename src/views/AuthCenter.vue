@@ -84,14 +84,32 @@
           </div>
         </div>
 
-        <el-table v-if="activeMenu === 'sessions'" :data="allSessions" v-loading="sessionsLoading">
-            <el-table-column prop="sessionId" label="会话ID" width="220" />
-            <el-table-column prop="principal" label="用户" width="120" />
-            <el-table-column prop="lastRequest" label="最后活动时间" width="180">
-              <template #default="{ row }">
-                {{ formatDate(row.lastRequest) }}
-              </template>
-            </el-table-column>
+        <!-- 修改后的会话表格 -->
+        <el-table 
+          v-if="activeMenu === 'sessions'" 
+          :data="allSessions" 
+          v-loading="sessionsLoading"
+          style="width: 100%"
+        >
+          <el-table-column prop="sessionId" label="会话ID" width="220" />
+          <el-table-column prop="principal" label="用户" width="120" />
+          <el-table-column prop="lastRequest" label="最后活动时间" width="180">
+            <template #default="{ row }">
+              {{ formatDate(row.lastRequest) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="120">
+            <template #default="{ row }">
+              <el-button
+                type="danger"
+                size="small"
+                @click="handleKickout(row.sessionId)"
+                :disabled="row.principal === userInfo.username"
+              >
+                踢出
+              </el-button>
+            </template>
+          </el-table-column>
         </el-table>
 
 
@@ -185,7 +203,7 @@ export default {
         }
         
         // 清除本地存储
-        localStorage.removeItem('user')
+        localStorage.removeItem('accessToken')
         localStorage.removeItem('authenticated')
         
         ElMessage.success('退出成功')
@@ -214,6 +232,27 @@ export default {
         sessionsLoading.value = false
       }
     }
+
+    // 新增踢人方法
+    const handleKickout = async (sessionId) => {
+      try {
+        await ElMessageBox.confirm('确定要踢出该用户吗？', '警告', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        
+        await authApi.kickoutSession(sessionId)    //这里的sessionId记得不要包成{sessionId}，不然它就变结构体了
+        ElMessage.success('踢出成功')
+        fetchAllSessions() // 刷新会话列表
+      } catch (error) {
+        if (error !== 'cancel') {
+          ElMessage.error('踢出失败: ' + (error.message || error))
+        }
+      }
+    }
+
+
 
     const formatDate = (date) => {
       return new Date(date).toLocaleString()
@@ -259,7 +298,8 @@ export default {
       fetchAllSessions,
       formatDate,
       allSessions,
-      sessionsLoading
+      sessionsLoading,
+      handleKickout // 新增方法暴露给模板
     }
   }
 }

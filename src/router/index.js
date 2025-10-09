@@ -40,19 +40,40 @@ const router = createRouter({
 
 // 路由守卫 - 使用Token验证
 router.beforeEach((to, from, next) => {
-  // 检查是否需要认证
-  if (to.meta.requiresAuth) {
-    // 检查是否已登录（从localStorage获取Token）
-    const accessToken = localStorage.getItem('accessToken');
+  // // 检查是否需要认证
+  // if (to.meta.requiresAuth) {
+  //   // 检查是否已登录（从localStorage获取Token）
+  //   const accessToken = localStorage.getItem('accessToken');
     
+  //   if (accessToken) {
+  //     next(); // 已登录，允许访问
+  //   } else {
+  //     next('/login'); // 未登录，跳转到登录页
+  //   }
+  // } else {
+  //   next(); // 不需要认证，直接访问
+  // }
+  // 避免登录页循环跳转
+  // 避免登录页循环跳转
+  if (to.path === '/login') {
+    if (localStorage.getItem('accessToken')) {
+      return next('/auth-center') // 已登录时直接跳转首页
+    }
+    return next() // 未登录允许访问登录页
+  }
+  
+  if (to.meta.requiresAuth) {
+    const accessToken = localStorage.getItem('accessToken')
     if (accessToken) {
-      next(); // 已登录，允许访问
+      next()
     } else {
-      next('/login'); // 未登录，跳转到登录页
+      next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
     }
   } else {
-    next(); // 不需要认证，直接访问
+    next()
   }
+
+
 });
 
 export default router;

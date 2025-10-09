@@ -26,11 +26,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   response => {
     console.log('认证响应:', response)
-    // 统一返回数据
     return response.data
   },
   error => {
-    console.error('认证请求失败:', error)
+    console.log('报错403了')
+    if (error.response?.status === 403) {
+      localStorage.removeItem('accessToken')
+      return Promise.reject(new Error('session expired'))
+    }
     return Promise.reject(error)
   }
 )
@@ -61,6 +64,15 @@ export const authApi = {
   // 获取当前session
   postSession(){
     return api.post('/center/admin/sessions')
+  },
+
+  // 新增踢人下线方法
+  kickoutSession(sessionId) {
+    return api({
+      url: '/center/admin/sessions/kickout',
+      method: 'post',
+      params: { sessionId } // 确保使用params而非data
+    })
   }
 
 
